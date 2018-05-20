@@ -16,6 +16,7 @@ postSchema.virtual('authorName').get(function() {
 
 //serialize could be changed to something else
 postSchema.methods.serialize = function() {
+  console.log('We made it to serialize');
   return {
     id: this._id,
     title: this.title,
@@ -26,6 +27,6 @@ postSchema.methods.serialize = function() {
 }
 
 
-const BlogPost = mongoose.model('BlogPost', postSchema, "blog-posts");
+const BlogPost = mongoose.model('BlogPost', postSchema, 'blog-posts');
 
 module.exports = {BlogPost};

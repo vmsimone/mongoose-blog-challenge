@@ -9,7 +9,22 @@ const { BlogPost } = require('./models');
 const app = express();
 app.use(express.json());
 
-
+app.get('/blog-posts', (req, res) => {
+  BlogPost
+    .find()
+    .then(blogPosts => {
+      res.json({
+        blogPosts: blogPosts.map(
+          (blogPost) => blogPost.serialize()
+        )
+      });
+      console.log(BlogPost.find());
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ message: 'Internal server error' });
+    });
+});
 
 
 app.use('*', function (req, res) {
