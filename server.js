@@ -1,24 +1,25 @@
 'use strict';
 
 const express = require('express');
+const morgan = require('morgan');
 const mongoose = require('mongoose');
 
 mongoose.Promise = global.Promise;
 
 const { PORT, DATABASE_URL } = require('./config');
-const { BlogPost } = require('./models');
+const { BlogPost, Author } = require('./models');
 
 const app = express();
+
+app.use(morgan('common'));
 app.use(express.json());
 
 app.get('/blog-posts', (req, res) => {
   BlogPost
     .find()
+    .populate('author')
     .then(blogPosts => {
-      res.json({
-        blogPosts: blogPosts.map(
-          (blogPost) => blogPost.serialize())
-      });
+      res.json(blogPosts.map(post => post.serialize()));
     })
     .catch(err => {
       console.error(err);
@@ -37,7 +38,7 @@ app.get('/blog-posts/:id', (req, res) => {
 });
 
 app.post('/blog-posts', (req, res) => {
-  const postKeys = ['title', 'content', 'author'];
+  const postKeys = ['title', 'content', 'author_id'];
   for (let i = 0; i < postKeys.length; i++) {
     const key = postKeys[i];
     if (!(key in req.body)) {
@@ -45,18 +46,53 @@ app.post('/blog-posts', (req, res) => {
       console.error(message);
       return res.status(400).send(message);
     }
-    BlogPost
-      .create({
-        title: req.body.title,
-        content: req.body.content,
-        author: req.body.author
-      })
-      .then(blogPosts => res.status(201).json(blogPosts.serialize()))
-      .catch(err => {
-        console.error(err);
-        res.status(500).json({ message: 'Internal server error' });
-      });
+    if (Author.findById(req.body.author_id) == "") {
+      const message = `Error: Author ID \`${req.body.author_id}\` does not exist`;
+      console.error(message);
+      return res.status(400).send(message);
     }
+  }
+
+  BlogPost
+    .create({
+      title: req.body.title,
+      content: req.body.content,
+      author: req.body.author._id
+    })
+    .then(blogPosts => res.status(201).json(blogPosts.serialize()))
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ message: 'Internal server error' });
+    });
+});
+
+app.post('/authors', (req, res) => {
+  const expectedKeys = ['firstName', 'lastName', 'userName'];
+  for (let i = 0; i < expectedKeys.length; i++) {
+    const key = expectedKeys[i];
+    if (!(key in req.body)) {
+      const message = `Missing \`${key}\` in request body`;
+      console.error(message);
+      return res.status(400).send(message);
+    }
+    if (Author.findOne(req.body.userName)) {
+      const message = `Error: Username \`${req.body.userName}\` already taken`;
+      console.error(message);
+      return res.status(400).send(message);
+    }
+  }
+
+  Author
+    .create({
+      firstName: req.body.firstName, 
+      lastName: req.body.lastName, 
+      userName: req.body.userName
+    })
+    .then(author => res.status(201).json(author.serialize()))
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ message: 'Internal server error' });
+    });
 });
 
 app.put('/blog-posts/:id', (req, res) => {
@@ -68,7 +104,7 @@ app.put('/blog-posts/:id', (req, res) => {
     return res.status(400).json({ message: message });
   }
   const updateThis = {};
-  const updateableKeys = ['title', 'content', 'author'];
+  const updateableKeys = ['title', 'content'];
 
   updateableKeys.forEach(key => {
     if (key in req.body) {
