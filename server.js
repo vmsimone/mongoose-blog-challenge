@@ -17,12 +17,29 @@ app.use(express.json());
 app.get('/blog-posts', (req, res) => {
   BlogPost
     .find()
-    .populate('author')
     .then(blogPosts => {
       res.json(blogPosts.map(post => post.serialize()));
     })
     .catch(err => {
       console.error(err);
+      res.status(500).json({ message: 'Internal server error' });
+    });
+});
+
+app.get('/authors', (req, res) => {
+  Author
+    .find()
+    .then(author => {
+      res.json(author.map(authorInfo => {
+        return {
+          id: authorInfo._id,
+          name: `${authorInfo.firstName} ${authorInfo.lastName}`,
+          userName: authorInfo.userName
+        };
+      }));
+    })
+    .catch(err => {
+      console.log(err);
       res.status(500).json({ message: 'Internal server error' });
     });
 });
@@ -79,7 +96,7 @@ app.post('/authors', (req, res) => {
       const message = `Error: Username \`${req.body.userName}\` already taken`;
       console.error(message);
       return res.status(400).send(message);
-    }
+    } 
   }
 
   Author
@@ -88,7 +105,11 @@ app.post('/authors', (req, res) => {
       lastName: req.body.lastName, 
       userName: req.body.userName
     })
-    .then(author => res.status(201).json(author.serialize()))
+    .then(author => res.status(201).json({
+      _id: author.id,
+      name: `${author.firstName} ${author.lastName}`,
+      userName: author.userName
+    }))
     .catch(err => {
       console.error(err);
       res.status(500).json({ message: 'Internal server error' });
@@ -115,14 +136,48 @@ app.put('/blog-posts/:id', (req, res) => {
   BlogPost
     .findByIdAndUpdate(req.params.id, { $set: updateThis })
     .then(blogPosts => res.status(204).end())
-    .catch(err => res.status(500).json({ message: 'Internal server error' }));
+    .catch(err => res.status(500).json({ message: err }));
+});
+
+app.put('/authors/:id', (req, res) => {
+  if (!(req.params.id && req.body.id && req.params.id === req.body.id)) {
+    const message = (
+      `Request path id (${req.params.id}) and request body id ` +
+      `(${req.body.id}) must match`);
+    console.error(message);
+    return res.status(400).json({ message: message });
+  }
+  const updateThis = {};
+  const updateableKeys = ['title', 'content'];
+
+  updateableKeys.forEach(key => {
+    if (key in req.body) {
+      updateThis[key] = req.body[key];
+    }
+  });
+
+  Author
+    .findByIdAndUpdate(req.params.id, { $set: updateThis })
+    .then(newAuthor => res.status(200).json({
+      id: newAuthor.id,
+      name: `${newAuthor.firstName} ${newAuthor.lastName}`,
+      userName: newAuthor.userName
+    }))
+    .catch(err => res.status(500).json({ message: err }));
 });
 
 app.delete('/blog-posts/:id', (req, res) => {
   BlogPost
     .findByIdAndRemove(req.params.id)
     .then(blogPosts => res.status(204).end())
-    .catch(err => res.status(500).json({ message: 'Internal server error' }));
+    .catch(err => res.status(500).json({ message: err }));
+});
+
+app.delete('/authors/:id', (req, res) => {
+  BlogPost
+    .findByIdAndRemove(req.params.id)
+    .then(() => res.status(204).json({message: 'deleted'}))
+    .catch(err => res.status(500).json({ message: err }));
 });
 
 app.use('*', function (req, res) {

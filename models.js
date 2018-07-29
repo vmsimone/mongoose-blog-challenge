@@ -16,7 +16,6 @@ const postSchema = mongoose.Schema({
   title: {type: String, required: true},
   content: {type: String, required: true},
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'Author' },
-  created: {type: Date, default: Date.now}, 
   comments: [commentSchema]
 });
 
@@ -29,6 +28,11 @@ postSchema.pre('find', function(next) {
   next();
 });
 
+postSchema.pre('findOne', function(next) {
+  this.populate('author');
+  next();
+})
+
 //serialize could be changed to something else
 postSchema.methods.serialize = function() {
   return {
@@ -36,11 +40,11 @@ postSchema.methods.serialize = function() {
     title: this.title,
     content: this.content,
     author: this.authorName,
-    created: this.created
+    comments: this.comments
   };
 };
 
 const Author = mongoose.model('Author', authorSchema);
 const BlogPost = mongoose.model('BlogPost', postSchema);
 
-module.exports = {BlogPost};
+module.exports = {Author, BlogPost};
